@@ -19,7 +19,7 @@ driver.get(url)
 
 try:
     # 'Select' öğesini bul
-    select_element = WebDriverWait(driver, 20).until(
+    select_element = WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.NAME, "profile"))
     )
     select = Select(select_element)
@@ -28,35 +28,55 @@ try:
     profiles_data = []
 
     # Tüm seçenekleri döngüyle işle
-    for option in select.options:
+    for index, option in enumerate(select.options):
         value = option.get_attribute("value")
         text = option.text.strip()
         print(f"Profil işleniyor: {text}")
 
         # Profil seçimi
-        select.select_by_value(value)
+        try:
+            select.select_by_value(value)
 
-        # Formun otomatik gönderilmesini bekle
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "table"))
+            # Formun otomatik gönderilmesini bekle
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "table"))
+            )
+
+            # Tabloyu bul ve satırları oku
+            table = driver.find_element(By.CLASS_NAME, "table")
+            rows = table.find_elements(By.TAG_NAME, "tr")
+
+            # Profil özelliklerini kaydetmek için bir sözlük
+            profile_details = {"Profil Adı": text}
+
+            for row in rows:
+                cells = row.find_elements(By.TAG_NAME, "td")
+                if len(cells) == 2:  # Sadece iki sütunlu satırları işle
+                    property_name = cells[0].text.strip()
+                    property_value = cells[1].text.strip()
+                    profile_details[property_name] = property_value
+
+            # Profili listeye ekle
+            profiles_data.append(profile_details)
+
+        except Exception as e:
+            print(f"Profil işlenirken hata oluştu ({text}): {e}")
+
+        # Ana sayfaya dön
+        driver.get(url)
+
+        # 'Select' öğesini yeniden bul (çünkü sayfa yenilendi)
+        select_element = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.NAME, "profile"))
         )
+        select = Select(select_element)
 
-        # Tabloyu bul ve satırları oku
-        table = driver.find_element(By.CLASS_NAME, "table")
-        rows = table.find_elements(By.TAG_NAME, "tr")
-
-        # Profil özelliklerini kaydetmek için bir sözlük
-        profile_details = {"Profil Adı": text}
-
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) == 2:  # Sadece iki sütunlu satırları işle
-                property_name = cells[0].text.strip()
-                property_value = cells[1].text.strip()
-                profile_details[property_name] = property_value
-
-        # Profili listeye ekle
-        profiles_data.append(profile_details)
+        # Her 10 profilden sonra WebDriver'ı yeniden başlat
+        if index > 0 and index % 10 == 0:
+            print("WebDriver yeniden başlatılıyor...")
+            driver.quit()
+            driver = webdriver.Chrome(service=service, options=options)
+            driver.get(url)
 
     # Verileri pandas DataFrame'e dönüştür
     df = pd.DataFrame(profiles_data)
