@@ -48,6 +48,18 @@ def get_profile_data(profile_name):
             print(f"Değer çıkarma hatası: {str(e)}")
             return None
     
+    # RHS, SHS, CHS profilleri için et kalınlığını profil adından çıkar
+    def extract_thickness(profile_name):
+        try:
+            if profile_name.startswith(('RHS', 'SHS', 'CHS')):
+                parts = profile_name.split('x')
+                thickness = float(parts[-1])  # En son değer et kalınlığıdır
+                return thickness
+            return None
+        except Exception as e:
+            print(f"Et kalınlığı çıkarılamadı: {profile_name}, Hata: {str(e)}")
+            return None
+    
     try:
         driver = setup_driver()
         base_url = "https://www.staticstools.eu/en"
@@ -362,6 +374,15 @@ def get_profile_data(profile_name):
                 'ipc (mm)': None
             }
         
+        # RHS, SHS, CHS profilleri için kalınlık değerini al
+        if profile_name.startswith(('RHS', 'SHS', 'CHS')):
+            thickness = extract_thickness(profile_name)
+            if thickness is not None:
+                if profile_name.startswith('CHS'):
+                    data['T (mm)'] = thickness
+                else:
+                    data['t (mm)'] = thickness
+        
         # Her hücreyi kontrol et
         for cell in all_cells:
             try:
@@ -557,7 +578,12 @@ def main():
     if all_results:
         df = pd.DataFrame(all_results)
         
-        # Tüm profil tipleri için olası tüm sütunlar tek listede
+        # Tüm sütun adlarını dictionary anahtarlarından oluştur
+        all_columns = set()
+        for result in all_results:
+            all_columns.update(result.keys())
+            
+        # Tüm profil tipleri için olası tüm sütunlar
         columns = [
             'Profil',
             'h (mm)', 'b (mm)', 'a (mm)', 'D (mm)',  # Ana boyutlar
@@ -581,15 +607,15 @@ def main():
             'Iyz (mm⁴)'  # Merkezkaç atalet momenti
         ]
         
-        # Mevcut sütunları koru, olmayanları NaN olarak bırak
-        df = df.reindex(columns=columns)
+        # Mevcut sütunları koru ve eksik sütunları NaN ile doldur
+        df = df.reindex(columns=[col for col in columns if col in all_columns], fill_value=None)
         
         # Excel'e kaydet
         excel_file = "profil_verileri.xlsx"
         df.to_excel(excel_file, index=False)
         
         print(f"\nToplam {len(all_results)} profil verisi işlendi")
-        print(f"Veriler kaydedildi: {excel_file}") 
+        print(f"Veriler kaydedildi: {excel_file}")
     else:
         print("\nHiç veri toplanamadı!")
 
