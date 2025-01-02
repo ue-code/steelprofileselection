@@ -275,26 +275,36 @@ def get_profile_data(profile_name):
                 'Iyz (mm⁴)': None
             }
         elif profile_name.startswith('CHS'):
-            # CHS21.3x2.3 formatından kalınlığı al
             parts = profile_name.split('x')
             thickness = float(parts[-1]) if len(parts) == 2 else None
             
             data = {
                 'Profil': profile_name,
+                # Geometry
                 'D (mm)': None,
-                'T (mm)': thickness,  # CHS için büyük T kullan
+                'T (mm)': thickness,
                 'A (mm²)': None,
                 'AL (m²/m)': None,
                 'G (kg/m)': None,
                 
                 # Section properties
-                'Iy = Iz (mm⁴)': None,
-                'Wy,el = Wz,el (mm³)': None,
-                'Wy,pl = Wz,pl (mm³)': None,
-                'iy = iz (mm)': None,
+                'Iy (mm⁴)': None,
+                'Iz (mm⁴)': None,
+                'Wy,el (mm³)': None,
+                'Wz,el (mm³)': None,
+                'Wy,pl (mm³)': None,
+                'Wz,pl (mm³)': None,
+                'iy (mm)': None,
+                'iz (mm)': None,
+                
+                # Warping and buckling
                 'It (mm⁴)': None,
                 'Ct (mm³)': None
             }
+            
+            # Kalınlık değerini hemen ata
+            if thickness is not None:
+                data['T (mm)'] = thickness
         elif profile_name.startswith('RHS'):
             # RHS50x30x2.6 formatından kalınlığı al
             parts = profile_name.split('x')
@@ -328,15 +338,18 @@ def get_profile_data(profile_name):
                 'It (mm⁴)': None,
                 'Ct (mm³)': None
             }
+            
+            # Kalınlık değerini hemen ata
+            if thickness is not None:
+                data['t (mm)'] = thickness
         elif profile_name.startswith('SHS'):
-            # SHS40x2.6 formatından kalınlığı al
             parts = profile_name.split('x')
             thickness = float(parts[-1]) if len(parts) == 2 else None
             
             data = {
                 'Profil': profile_name,
                 'a (mm)': None,
-                't (mm)': thickness,  # Kalınlık değerini profil adından al
+                't (mm)': thickness,
                 'r (mm)': None,
                 'A (mm²)': None,
                 'AL (m²/m)': None,
@@ -350,6 +363,41 @@ def get_profile_data(profile_name):
                 'Iz (mm⁴)': None,
                 'Wz (mm³)': None,
                 'iz (mm)': None
+            }
+            
+            # Kalınlık değerini hemen ata
+            if thickness is not None:
+                data['t (mm)'] = thickness
+        elif profile_name.startswith('HEA'):
+            data = {
+                'Profil': profile_name,
+                # Geometry
+                'h (mm)': None,
+                'b (mm)': None,
+                'tw (mm)': None,
+                'tf (mm)': None,
+                'r1 (mm)': None,
+                'r2 (mm)': None,
+                'A (mm²)': None,
+                'AL (m²/m)': None,
+                'G (kg/m)': None,
+                
+                # Section properties
+                'Iy (mm⁴)': None,
+                'Wy1 (mm³)': None,
+                'Wy,pl (mm³)': None,
+                'iy (mm)': None,
+                'Sy (mm³)': None,
+                'Iz (mm⁴)': None,
+                'Wz1 (mm³)': None,
+                'Wz,pl (mm³)': None,
+                'iz (mm)': None,
+                'Sz (mm³)': None,
+                
+                # Warping and buckling
+                'Iw (mm⁶)': None,
+                'It (mm⁴)': None,  # Büyük I
+                'ipc (mm)': None
             }
         else:
             # Diğer profiller için mevcut dictionary yapısı
@@ -391,28 +439,21 @@ def get_profile_data(profile_name):
                 # Debug: Tüm hücreleri yazdır
                 print(f"Hücre içeriği: [{text}]")
                 
-                # It kontrolü - alt indis karakterini dikkate almadan
-                if 'It = ' in text or 'IT = ' in text:
-                    print("\n=== It Değeri İşleniyor ===")
-                    print(f"Bulunan metin: {text}")
-                    try:
-                        raw_value = text.split('=')[1].strip().split()[0]
-                        print(f"Ham değer: {raw_value}")
-                        
-                        if 'E+' in raw_value:
-                            base, exp = raw_value.split('E+')
-                            base = float(base.replace(',', '.'))
-                            exp = int(exp)
-                            final_value = base * (10 ** exp)
-                        else:
-                            final_value = float(raw_value.replace(',', '.'))
-                        
-                        print(f"Hesaplanan değer: {final_value}")
-                        data['It (mm⁴)'] = final_value
-                        print(f"Dictionary'de It değeri: {data['It (mm⁴)']}")
-                        
-                    except Exception as e:
-                        print(f"It değeri işlenirken hata: {str(e)}")
+                # Ct değeri için özel kontrol
+                if 'Ct = ' in text:
+                    data['Ct (mm³)'] = extract_value(text)
+                    continue  # Ct işlendikten sonra diğer kontrollere geçme
+                
+                # It değeri için kontrol
+                elif 'It = ' in text:
+                    data['It (mm⁴)'] = extract_value(text)
+                    continue  # It işlendikten sonra diğer kontrollere geçme
+                
+                # t veya T değeri için kontrol (CHS, RHS, SHS profilleri hariç)
+                elif 't = ' in text and not profile_name.startswith(('RHS', 'SHS')):
+                    data['t (mm)'] = extract_value(text)
+                elif 'T = ' in text and not profile_name.startswith('CHS'):
+                    data['T (mm)'] = extract_value(text)
                 
                 # Diğer kontroller aynı kalacak
                 elif 'h = ' in text:
@@ -507,6 +548,136 @@ def get_profile_data(profile_name):
                     except Exception as e:
                         print(f"ipc değeri işlenirken hata: {str(e)}")
                 
+                # L profilleri için özel kontroller
+                if profile_name.startswith('L'):
+                    if 'b = ' in text:
+                        data['b (mm)'] = extract_value(text)
+                    elif 't = ' in text:
+                        data['t (mm)'] = extract_value(text)
+                    elif 'r1 = ' in text:
+                        data['r1 (mm)'] = extract_value(text)
+                    elif 'r2 = ' in text:
+                        data['r2 (mm)'] = extract_value(text)
+                    elif 'ys = ' in text:
+                        data['ys (mm)'] = extract_value(text)
+                    elif "y's = " in text:
+                        data["y's (mm)"] = extract_value(text)
+                    elif 'v = ' in text:
+                        data['v (mm)'] = extract_value(text)
+                    elif 'u1 = ' in text:
+                        data['u1 (mm)'] = extract_value(text)
+                    elif 'u2 = ' in text:
+                        data['u2 (mm)'] = extract_value(text)
+                    elif 'A = ' in text:
+                        data['A (mm²)'] = extract_value(text)
+                    elif 'AL = ' in text:
+                        data['AL (m²/m)'] = extract_value(text)
+                    elif 'G = ' in text:
+                        data['G (kg/m)'] = extract_value(text)
+                    
+                    # Section properties - Axis y
+                    elif 'Iy = ' in text:
+                        data['Iy (mm⁴)'] = extract_value(text)
+                    elif 'Wy1 = ' in text:
+                        data['Wy1 (mm³)'] = extract_value(text)
+                    elif 'Wy2 = ' in text:
+                        data['Wy2 (mm³)'] = extract_value(text)
+                    elif 'iy = ' in text:
+                        data['iy (mm)'] = extract_value(text)
+                    
+                    # Section properties - Axis z
+                    elif 'Iz = ' in text:
+                        data['Iz (mm⁴)'] = extract_value(text)
+                    elif 'Wz2 = ' in text:
+                        data['Wz2 (mm³)'] = extract_value(text)
+                    elif 'Wz3 = ' in text:
+                        data['Wz3 (mm³)'] = extract_value(text)
+                    elif 'iz = ' in text:
+                        data['iz (mm)'] = extract_value(text)
+                    
+                    # Section properties - Main axes
+                    elif 'Iu = ' in text:
+                        data['Iu (mm⁴)'] = extract_value(text)
+                    elif 'Iv = ' in text:
+                        data['Iv (mm⁴)'] = extract_value(text)
+                    elif 'Wu1 = ' in text:
+                        data['Wu1 (mm³)'] = extract_value(text)
+                    elif 'Wv2 = ' in text:
+                        data['Wv2 (mm³)'] = extract_value(text)
+                    elif 'Wv3 = ' in text:
+                        data['Wv3 (mm³)'] = extract_value(text)
+                    elif 'iu = ' in text:
+                        data['iu (mm)'] = extract_value(text)
+                    elif 'iv = ' in text:
+                        data['iv (mm)'] = extract_value(text)
+                    elif 'um = ' in text:
+                        data['um (mm)'] = extract_value(text)
+                    
+                    # Warping and buckling
+                    elif 'It = ' in text:
+                        data['It (mm⁴)'] = extract_value(text)
+                    elif 'ipc = ' in text:
+                        data['ipc (mm)'] = extract_value(text)
+                    elif 'ipa = ' in text:
+                        data['ipa (mm)'] = extract_value(text)
+                    elif 'Iyz = ' in text:
+                        data['Iyz (mm⁴)'] = extract_value(text)
+                    
+                    continue  # L profilleri için kontrollerden sonra diğer kontrollere geçme
+                
+                # HEA profilleri için özel kontroller
+                if profile_name.startswith('HEA'):
+                    if 'h = ' in text:
+                        data['h (mm)'] = extract_value(text)
+                    elif 'b = ' in text:
+                        data['b (mm)'] = extract_value(text)
+                    elif 'tw = ' in text:
+                        data['tw (mm)'] = extract_value(text)
+                    elif 'tf = ' in text:
+                        data['tf (mm)'] = extract_value(text)
+                    elif 'r1 = ' in text:
+                        data['r1 (mm)'] = extract_value(text)
+                    elif 'r2 = ' in text:
+                        data['r2 (mm)'] = extract_value(text)
+                    elif 'A = ' in text:
+                        data['A (mm²)'] = extract_value(text)
+                    elif 'AL = ' in text:
+                        data['AL (m²/m)'] = extract_value(text)
+                    elif 'G = ' in text:
+                        data['G (kg/m)'] = extract_value(text)
+                    
+                    # Section properties
+                    elif 'Iy = ' in text:
+                        data['Iy (mm⁴)'] = extract_value(text)
+                    elif 'Wy1 = ' in text:
+                        data['Wy1 (mm³)'] = extract_value(text)
+                    elif 'Wy,pl = ' in text:
+                        data['Wy,pl (mm³)'] = extract_value(text)
+                    elif 'iy = ' in text:
+                        data['iy (mm)'] = extract_value(text)
+                    elif 'Sy = ' in text:
+                        data['Sy (mm³)'] = extract_value(text)
+                    elif 'Iz = ' in text:
+                        data['Iz (mm⁴)'] = extract_value(text)
+                    elif 'Wz1 = ' in text:
+                        data['Wz1 (mm³)'] = extract_value(text)
+                    elif 'Wz,pl = ' in text:
+                        data['Wz,pl (mm³)'] = extract_value(text)
+                    elif 'iz = ' in text:
+                        data['iz (mm)'] = extract_value(text)
+                    elif 'Sz = ' in text:
+                        data['Sz (mm³)'] = extract_value(text)
+                    
+                    # Warping and buckling
+                    elif 'Iw = ' in text:
+                        data['Iw (mm⁶)'] = extract_value(text)
+                    elif 'It = ' in text:  # Büyük I
+                        data['It (mm⁴)'] = extract_value(text)
+                    elif 'ipc = ' in text:
+                        data['ipc (mm)'] = extract_value(text)
+                    
+                    continue  # HEA profilleri için kontrollerden sonra diğer kontrollere geçme
+                
             except Exception as e:
                 print(f"HATA: {str(e)}")
                 print(f"Hata türü: {type(e)}")
@@ -576,39 +747,24 @@ def main():
             time.sleep(2)
     
     if all_results:
-        df = pd.DataFrame(all_results)
-        
-        # Tüm sütun adlarını dictionary anahtarlarından oluştur
+        # Önce tüm olası sütunları belirle
         all_columns = set()
         for result in all_results:
             all_columns.update(result.keys())
-            
-        # Tüm profil tipleri için olası tüm sütunlar
-        columns = [
-            'Profil',
-            'h (mm)', 'b (mm)', 'a (mm)', 'D (mm)',  # Ana boyutlar
-            'tf (mm)', 'tw (mm)', 't (mm)', 'T (mm)',  # Et kalınlıkları
-            'r1 (mm)', 'r2 (mm)', 'r (mm)',  # Yarıçaplar
-            'ys (mm)', "y's (mm)", 'zs (mm)', "z's (mm)",  # Ağırlık merkezi
-            'd (mm)', 'v (mm)', 'u1 (mm)', 'u2 (mm)', 'um (mm)',  # Diğer boyutlar
-            'A (mm²)', 'AL (m²/m)', 'G (kg/m)',  # Kesit özellikleri
-            'Iy (mm⁴)', 'Iz (mm⁴)', 'Iy = Iz (mm⁴)',  # Atalet momentleri
-            'Wy1 (mm³)', 'Wy2 (mm³)', 'Wz1 (mm³)', 'Wz2 (mm³)', 'Wz3 (mm³)',  # Mukavemet momentleri
-            'Wy,el (mm³)', 'Wz,el (mm³)', 'Wy,el = Wz,el (mm³)',  # Elastik mukavemet momentleri
-            'Wy,pl (mm³)', 'Wz,pl (mm³)', 'Wy,pl = Wz,pl (mm³)',  # Plastik mukavemet momentleri
-            'iy (mm)', 'iz (mm)', 'iy = iz (mm)',  # Atalet yarıçapları
-            'Sy (mm³)', 'Sz (mm³)', 'Sy = Sz (mm³)',  # Statik momentler
-            'Iu (mm⁴)', 'Iv (mm⁴)',  # Ana eksen atalet momentleri
-            'Wu1 (mm³)', 'Wv2 (mm³)', 'Wv3 (mm³)',  # Ana eksen mukavemet momentleri
-            'iu (mm)', 'iv (mm)',  # Ana eksen atalet yarıçapları
-            'Iw (mm⁶)', 'It (mm⁴)',  # Çarpılma ve burulma atalet momentleri
-            'iw (mm)', 'ipc (mm)', 'ipa (mm)',  # Çarpılma ve polar atalet yarıçapları
-            'Ct (mm³)',  # Burulma mukavemet momenti
-            'Iyz (mm⁴)'  # Merkezkaç atalet momenti
-        ]
         
-        # Mevcut sütunları koru ve eksik sütunları NaN ile doldur
-        df = df.reindex(columns=[col for col in columns if col in all_columns], fill_value=None)
+        # DataFrame oluştur
+        df = pd.DataFrame(all_results)
+        
+        # Sütunları düzenle - tüm sütunları dahil et
+        columns = sorted(list(all_columns))  # Tüm sütunları alfabetik sırala
+        
+        # 'Profil' sütununu en başa al
+        if 'Profil' in columns:
+            columns.remove('Profil')
+            columns = ['Profil'] + columns
+        
+        # DataFrame'i yeniden düzenle
+        df = df.reindex(columns=columns)
         
         # Excel'e kaydet
         excel_file = "profil_verileri.xlsx"
@@ -616,6 +772,9 @@ def main():
         
         print(f"\nToplam {len(all_results)} profil verisi işlendi")
         print(f"Veriler kaydedildi: {excel_file}")
+        print("\nKaydedilen sütunlar:")
+        for col in df.columns:
+            print(f"- {col}")
     else:
         print("\nHiç veri toplanamadı!")
 
