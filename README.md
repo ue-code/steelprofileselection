@@ -50,11 +50,12 @@ Katkıda bulunmak isterseniz, lütfen bir pull request gönderin veya bir sorun 
 
 ## Lisans
 
-Bu proje MIT Lisansı ile lisanslanmıştır. Daha fazla bilgi için `LICENSE` dosyasına bakın.
+- Bu proje MIT Lisansı ile lisanslanmıştır. Daha fazla bilgi için `LICENSE` dosyasına bakın.
 
 ----
 
-This project automatically retrieves section properties for various types of steel profiles and saves them to an Excel file. The project collects data from web pages using Selenium and processes the data with pandas.
+This project automatically retrieves section properties for various types of steel profiles and saves them to an Excel file. 
+The project collects data from web pages using Selenium and processes the data with pandas.
 
 ## Requirements
 
@@ -76,7 +77,7 @@ Install Chrome WebDriver. The webdriver_manager package will automatically manag
    ```bash
    python steelprofileselection.py
    ```
-2. The program fetches data for the specified steel profiles and saves it to an Excel file named profil_verileri.xlsx.
+2. The program fetches data for the specified steel profiles and saves it to an Excel file named  `profil_verileri.xlsx`.
 3. You can add the required profiles for data extraction to the relevant section of the code block.
    
 ## Features
@@ -95,6 +96,6 @@ Install Chrome WebDriver. The webdriver_manager package will automatically manag
 
 ## License
 
-- This project is licensed under the MIT License. For more information, see the LICENSE file.
+- This project is licensed under the MIT License. For more information, see the `LICENSE` file.
 
 
