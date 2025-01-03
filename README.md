@@ -32,12 +32,7 @@ Bu proje, çeşitli çelik profil tipleri için kesit özelliklerini otomatik ol
 
 ## Desteklenen Profil Tipleri
 
-- HEA
-- RHS
-- SHS
-- CHS
-- L
-- T
+- Kesit özellikleri çekilmek istenen her profil için kod bloğunda ilgili yere, profilin adı yazılmalıdır.
 
 ## Özellikler
 
@@ -48,7 +43,7 @@ Bu proje, çeşitli çelik profil tipleri için kesit özelliklerini otomatik ol
 ## Notlar
 
 - Her profil tipi için farklı özellikler mevcuttur. Kod, her profil tipi için uygun özellikleri çeker ve kaydeder.
-- `It` ve `Ct` gibi özellikler, doğru sütunlara yazılır ve karışıklık önlenir.
+
 
 ## Katkıda Bulunma
 
